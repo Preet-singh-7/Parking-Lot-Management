@@ -6,59 +6,64 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.List;
+import java.util.Map;
 
 public class ParkingLotGUI {
 
-    private static final int TOTAL_FLOORS = 3;
-    private static final int SPOTS_PER_FLOOR = 20;
+    private static JLabel occupancyLabel = new JLabel();
 
     public static void createAndShowGUI() {
         JFrame frame = new JFrame("Parking Lot Management");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(1000, 600);
+        frame.setLayout(new BorderLayout());
+
+        // Top occupancy label
+        occupancyLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        occupancyLabel.setFont(new Font("Arial", Font.BOLD, 16));
+        updateOccupancyCount();
+        frame.add(occupancyLabel, BorderLayout.NORTH);
 
         JTabbedPane tabbedPane = new JTabbedPane();
 
-        for (int floor = 1; floor <= TOTAL_FLOORS; floor++) {
-            JPanel floorPanel = new JPanel(new GridLayout(4, 5, 10, 10)); // 4 rows x 5 columns
-            floorPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
-            for (int spot = 1; spot <= SPOTS_PER_FLOOR; spot++) {
+        // Create one tab per floor
+        for (int floor = 1; floor <= 3; floor++) {
+            JPanel floorPanel = new JPanel(new GridLayout(4, 5, 10, 10)); // 4x5 = 20 spots
+            for (int spot = 1; spot <= 20; spot++) {
                 String spotId = "F" + floor + "S" + spot;
                 JButton spotButton = new JButton(spotId);
                 spotButton.setName(spotId);
 
                 String status = DatabaseHelper.getParkingSpotStatus(spotId);
-                updateParkingSpotButton(spotButton, status);
+                updateParkingSpotButton(spotButton, status, spotId);
 
                 spotButton.addActionListener(new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent e) {
                         DatabaseHelper.toggleSpotStatus(spotId);
                         String newStatus = DatabaseHelper.getParkingSpotStatus(spotId);
-                        updateParkingSpotButton(spotButton, newStatus);
+                        updateParkingSpotButton(spotButton, newStatus, spotId);
+                        updateOccupancyCount();
                     }
                 });
 
                 floorPanel.add(spotButton);
             }
-
             tabbedPane.add("Floor " + floor, floorPanel);
         }
 
-        frame.add(tabbedPane);
+        frame.add(tabbedPane, BorderLayout.CENTER);
+        frame.setSize(600, 500);
         frame.setVisible(true);
     }
 
-    // Update the button text and background color based on status
-    public static void updateParkingSpotButton(JButton spotButton, String status) {
-        String spotId = spotButton.getName(); // e.g., F1S3
-
-        if ("Free".equalsIgnoreCase(status)) {
+    // Update the button's text and color based on the parking spot status
+    public static void updateParkingSpotButton(JButton spotButton, String status, String spotId) {
+        if ("Free".equals(status)) {
             spotButton.setText(spotId + " - Free");
             spotButton.setBackground(Color.GREEN);
             spotButton.setForeground(Color.BLACK);
-        } else if ("Occupied".equalsIgnoreCase(status)) {
+        } else if ("Occupied".equals(status)) {
             spotButton.setText(spotId + " - Occupied");
             spotButton.setBackground(Color.RED);
             spotButton.setForeground(Color.BLACK);
@@ -67,5 +72,15 @@ public class ParkingLotGUI {
             spotButton.setBackground(Color.GRAY);
             spotButton.setForeground(Color.WHITE);
         }
+    }
+
+    // Updates the label with the current total number of occupied spots
+    public static void updateOccupancyCount() {
+        List<Map<String, String>> allSpots = DatabaseHelper.getAllParkingSpots();
+        long occupiedCount = allSpots.stream()
+                .filter(spot -> "Occupied".equalsIgnoreCase(spot.get("status")))
+                .count();
+
+        occupancyLabel.setText("Total Occupied Spots: " + occupiedCount + " / " + allSpots.size());
     }
 }
